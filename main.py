@@ -1,6 +1,7 @@
 from config import *
 from databases import *
-from datetime import datetime, timedelta, time
+from datetime import datetime, timedelta
+import time
 import sqlite3
 import os
 import pandas as pd
@@ -10,7 +11,7 @@ import logging
 import requests
 
 PROJECT_NAME = "Aurelius"
-VERSION_NUMBER = "0.0.35"
+VERSION_NUMBER = "0.0.4"
 
 EPOCH_MARKET_DATE = "2023-01-17"
 LATEST_MARKET_DATE = "2025-01-10"
@@ -126,10 +127,11 @@ def convert_dates_to_unix(dates):
 
 def aggregate_bars(url, database, table):
     """Pulls daily OHLCV data from Polygon IO."""
+    time.sleep(13) # API limits 5 requests per minute
     response = requests.get(url)
     if response.status_code == 200:
         data = response.json()
-        connection = sqlite3.connect(f"{database}.db")
+        connection = sqlite3.connect(f"{database}")
         cursor = connection.cursor()
         for result in data['results']:
             cursor.execute(f'''
@@ -151,7 +153,6 @@ def aggregate_bars(url, database, table):
                 result['vw'],
                 result['n']
             ))
-
         connection.commit()
         connection.close()
         return data

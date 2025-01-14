@@ -31,7 +31,12 @@ def main():
     output("Converted & stored all date columns as timestamps.")
 
     """Data Procurement"""
-    aggregate_bars(f"https://api.polygon.io/v2/aggs/ticker/AAPL/range/1/day/2024-05-29/2024-06-29?apiKey={POLYGON_IO_API_KEY}", "Stocks", "ohlcv_daily")
+    for database, items in DATABASES.items():
+        tickers = items["tickers"]
+        for table in items["tables"]:
+            for ticker in tickers:
+                aggregate_bars(f"https://api.polygon.io/v2/aggs/ticker/{ticker}/range/1/day/2024-01-01/2024-12-31?apiKey={POLYGON_IO_API_KEY}",database,table)
+                output(f"Data pulled for {database}, {ticker}, {table}")
 
     """End"""
     end_time = datetime.now()
