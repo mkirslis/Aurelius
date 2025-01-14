@@ -1,10 +1,23 @@
 from config import *
 from databases import *
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 import sqlite3
 import os
 import pandas as pd
 import csv
+import pytz
+import logging
+
+PROJECT_NAME = "Aurelius"
+VERSION_NUMBER = "0.0.3"
+
+EPOCH_MARKET_DATE = "2023-01-17"
+LATEST_MARKET_DATE = "2025-01-10"
+
+
+logging.basicConfig(filename="app.log",
+                    level=logging.INFO,
+                    format='%(asctime)s - %(levelname)s - %(message)s')
 
 
 def output(message, log_level="info"):
@@ -88,3 +101,23 @@ def create_table(connection: sqlite3.Connection, database: str, table_name: str,
         output(f"Error creating table '{database}, {table_name}': {e}", "error")
     finally:
         cursor.close()
+
+
+def read_csv_col(csv, col): 
+    """Reads in a column of dates from a CSV file (to establish market dates)."""
+    df = pd.read_csv(csv)
+    output(f"Loaded column '{col}' from CSV.")
+    return df[col]
+
+
+def convert_dates_to_unix(dates):
+    """Converts datetimes @ 00:00 EST to Unix timestamps."""
+    est = pytz.timezone('US/Eastern')
+    unix_timestamps = []
+    for date in dates:
+        if pd.isna(date): continue
+        dt = datetime.strptime(date, '%m/%d/%Y')
+        dt = est.localize(dt)
+        unix_timestamp = int(dt.timestamp() * 1000)
+        unix_timestamps.append(unix_timestamp)
+    return unix_timestamps
