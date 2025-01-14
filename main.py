@@ -7,9 +7,10 @@ import pandas as pd
 import csv
 import pytz
 import logging
+import requests
 
 PROJECT_NAME = "Aurelius"
-VERSION_NUMBER = "0.0.3"
+VERSION_NUMBER = "0.0.35"
 
 EPOCH_MARKET_DATE = "2023-01-17"
 LATEST_MARKET_DATE = "2025-01-10"
@@ -121,3 +122,39 @@ def convert_dates_to_unix(dates):
         unix_timestamp = int(dt.timestamp() * 1000)
         unix_timestamps.append(unix_timestamp)
     return unix_timestamps
+
+
+def aggregate_bars(url, database, table):
+    """Pulls daily OHLCV data from Polygon IO."""
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = response.json()
+        connection = sqlite3.connect(f"{database}.db")
+        cursor = connection.cursor()
+        for result in data['results']:
+            cursor.execute(f'''
+                INSERT INTO {table} (request_id, queryCount, resultsCount, status, adjusted, t, ticker, o, h, l, c, v, vw, n)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                data['request_id'],
+                data['queryCount'],
+                data['resultsCount'],
+                data['status'],
+                data['adjusted'],
+                result['t'],
+                data['ticker'],
+                result['o'],
+                result['h'],
+                result['l'],
+                result['c'],
+                result['v'],
+                result['vw'],
+                result['n']
+            ))
+
+        connection.commit()
+        connection.close()
+        return data
+    else:
+        return f"Error: {response.status_code}"
+

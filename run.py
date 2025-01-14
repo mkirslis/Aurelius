@@ -31,6 +31,7 @@ def main():
     output("Converted & stored all date columns as timestamps.")
 
     """Data Procurement"""
+    aggregate_bars(f"https://api.polygon.io/v2/aggs/ticker/AAPL/range/1/day/2024-05-29/2024-06-29?apiKey={POLYGON_IO_API_KEY}", "Stocks", "ohlcv_daily")
 
     """End"""
     end_time = datetime.now()
