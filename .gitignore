@@ -1,0 +1,9 @@
+sqlite3.exe
+docs
+config.py
+*.log
+*.db
+*.pyc
+*.pyo
+__pychache__/
+venv/

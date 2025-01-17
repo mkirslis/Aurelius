@@ -1,32 +1,34 @@
 OHLCV_DAILY = '''
 CREATE TABLE IF NOT EXISTS ohlcv_daily (
-    request_id TEXT, 
-    queryCount INTEGER, 
-    resultsCount INTEGER, 
-    status TEXT, 
-    adjusted BOOLEAN, 
-    t INTEGER, 
+    timestamp INTEGER,
+    datetime DATETIME, 
     ticker TEXT, 
-    o REAL, 
-    h REAL, 
-    l REAL, 
-    c REAL, 
-    v INTEGER, 
-    vw REAL,
-    n INTEGER )
+    open REAL, 
+    high REAL, 
+    low REAL, 
+    close REAL, 
+    volume INTEGER, 
+    volume_weighted REAL,
+    trades INTEGER )
+'''
+
+BASELINE_TIMESTAMPS = '''
+CREATE TABLE IF NOT EXISTS baseline_timestamps (
+    timestamp INTEGER )
 '''
 
 DATABASES = {
     "Stocks.db": {
-        "tickers": ["AAPL", "MSFT", "AMZN", "GOOGL", "META"],
+        "tickers": ["JPM", "BAC", "C", "WFC", "GS", "MS"],
         "tables": {
             "ohlcv_daily": OHLCV_DAILY
         }
     },
-    "Forex.db": {
-        "tickers": ["C:EURUSD", "C:JPYUSD", "C:GBPUSD", "C:AUDUSD", "C:CADUSD", "C:CHFUSD", "C:NZDUSD"],
+
+    "BaselineTimestamps.db": {
+        "tickers": ["SPY"],
         "tables": {
-            "ohlcv_daily": OHLCV_DAILY
+            "baseline_timestamps": BASELINE_TIMESTAMPS
         }
-    }
+    },
 }

@@ -1,38 +1,30 @@
 from config import *
 from databases import *
-from datetime import datetime, timedelta
+from datetime import datetime, timezone
 import time
 import sqlite3
 import os
 import pandas as pd
-import csv
 import pytz
 import logging
 import requests
 
 PROJECT_NAME = "Aurelius"
 VERSION_NUMBER = "0.0.4"
+EARLIEST_MARKET_DATE = "2023-01-17"
+LATEST_MARKET_DATE = "2025-01-15"
 
-EPOCH_MARKET_DATE = "2023-01-17"
-LATEST_MARKET_DATE = "2025-01-10"
-
-
-logging.basicConfig(filename="app.log",
+logging.basicConfig(filename=f"log_v{VERSION_NUMBER}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log",
                     level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
 
 def output(message, log_level="info"):
     """
-    Print a message to the console and log it simultaneously.
-    
-    Args:
-        message (str): The message to print and log.
-        log_level (str): The logging level as a string (default is "info").
-                         Valid levels: "debug", "info", "warning", "error", "critical".
+    Print & log simultaneously.
 
     # Logging Levels:
-    # Level      String       Numeric Value    Description
+    # Level      String       Value           Description
     # DEBUG      "debug"      10              Detailed debugging information.
     # INFO       "info"       20              General operational messages.
     # WARNING    "warning"    30              Something unexpected or future problems.
@@ -52,7 +44,7 @@ def output(message, log_level="info"):
 
 
 def check_database_exists(database: str) -> bool:
-    """Check if the database file exists."""
+    """Check if a database file exists."""
     try:
         if os.path.exists(database):
             output(f"Database '{database}' already exists.")
@@ -66,7 +58,7 @@ def check_database_exists(database: str) -> bool:
 
 
 def create_database(database: str):
-    """Create the database (used if the dt does not exist)."""
+    """Create a database file."""
     try:
         with sqlite3.connect(database):
             output(f"Database '{database}' created.")
@@ -75,7 +67,7 @@ def create_database(database: str):
 
 
 def check_table_exists(connection: sqlite3.Connection, database: str, table_name: str) -> bool:
-    """Check if a table exists in the database."""
+    """Check if a table exists in a database."""
     cursor = connection.cursor()
     try:
         cursor.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table_name}'")
@@ -94,7 +86,7 @@ def check_table_exists(connection: sqlite3.Connection, database: str, table_name
 
 
 def create_table(connection: sqlite3.Connection, database: str, table_name: str, query: str):
-    """Create a table in the database if it does not exist."""
+    """Create a table in a database."""
     try:
         cursor = connection.cursor()
         cursor.execute(query)
@@ -105,24 +97,31 @@ def create_table(connection: sqlite3.Connection, database: str, table_name: str,
         cursor.close()
 
 
-def read_csv_col(csv, col): 
-    """Reads in a column of dates from a CSV file (to establish market dates)."""
-    df = pd.read_csv(csv)
-    output(f"Loaded column '{col}' from CSV.")
-    return df[col]
+def aggregate_bars_baseline(url):
+    """Pulls timestamps for $SPY aggregates to compare against other tickers."""
+    time.sleep(13)  # API limits 5 requests per minute
+    
+    # If any old timestamps exist before the most recent current date
+    # Keep them by removing all timestamps greater than latest date before pull
 
-
-def convert_dates_to_unix(dates):
-    """Converts datetimes @ 00:00 EST to Unix timestamps."""
-    est = pytz.timezone('US/Eastern')
-    unix_timestamps = []
-    for date in dates:
-        if pd.isna(date): continue
-        dt = datetime.strptime(date, '%m/%d/%Y')
-        dt = est.localize(dt)
-        unix_timestamp = int(dt.timestamp() * 1000)
-        unix_timestamps.append(unix_timestamp)
-    return unix_timestamps
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = response.json()
+        connection = sqlite3.connect("BaselineTimestamps.db")
+        cursor = connection.cursor()
+        for result in data['results']:
+            cursor.execute('''
+                INSERT INTO baseline_timestamps (timestamp)
+                VALUES (?)
+            ''', (
+                result['t'],
+            ))
+        connection.commit()
+        connection.close()
+        output("Pulled baseline timestamps from $SPY.")
+        return data
+    else:
+        return f"Error: {response.status_code}"
 
 
 def aggregate_bars(url, database, table):
@@ -134,16 +133,13 @@ def aggregate_bars(url, database, table):
         connection = sqlite3.connect(f"{database}")
         cursor = connection.cursor()
         for result in data['results']:
+            dt = datetime.fromtimestamp(result['t'] / 1000, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
             cursor.execute(f'''
-                INSERT INTO {table} (request_id, queryCount, resultsCount, status, adjusted, t, ticker, o, h, l, c, v, vw, n)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO {table} (timestamp, datetime, ticker, open, high, low, close, volume, volume_weighted, trades)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
-                data['request_id'],
-                data['queryCount'],
-                data['resultsCount'],
-                data['status'],
-                data['adjusted'],
                 result['t'],
+                dt,
                 data['ticker'],
                 result['o'],
                 result['h'],
@@ -158,4 +154,3 @@ def aggregate_bars(url, database, table):
         return data
     else:
         return f"Error: {response.status_code}"
-

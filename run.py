@@ -1,4 +1,3 @@
-from datetime import datetime
 from config import POLYGON_IO_API_KEY
 from databases import DATABASES
 from main import *
@@ -21,22 +20,36 @@ def main():
                 if not check_table_exists(connection, database, table):
                     create_table(connection, database, table, query)
 
-    """Data Validation"""
-    timestamps_dict = {}
-    for col_name in pd.read_csv("market_dates.csv").columns:
-        dates = read_csv_col("market_dates.csv", col_name)
-        timestamps = convert_dates_to_unix(dates)
-        timestamps_dict[col_name] = timestamps
-        output(f"Converted column '{col_name}' from dates to timestamps.")
-    output("Converted & stored all date columns as timestamps.")
-
     """Data Procurement"""
+    aggregate_bars_baseline(f"https://api.polygon.io/v2/aggs/ticker/SPY/range/1/day/{EARLIEST_MARKET_DATE}/{LATEST_MARKET_DATE}?apiKey={POLYGON_IO_API_KEY}")
+
+    # Check to see if all baseline timestamps * ticker * table combos exist
+    # For those that do not, pull data
+    # For any data with a timestamp older than the earliest date, assume its valid & exclude from checks
+    # Remove duplicates in tables
+
+    # Make sure all tickers have equal number of candles to baseline
+
     for database, items in DATABASES.items():
-        tickers = items["tickers"]
-        for table in items["tables"]:
-            for ticker in tickers:
-                aggregate_bars(f"https://api.polygon.io/v2/aggs/ticker/{ticker}/range/1/day/2024-01-01/2024-12-31?apiKey={POLYGON_IO_API_KEY}",database,table)
-                output(f"Data pulled for {database}, {ticker}, {table}")
+        if database != "BaselineTimestamps.db":
+            tickers = items["tickers"]
+            for table in items["tables"]:
+                for ticker in tickers:
+                    aggregate_bars(f"https://api.polygon.io/v2/aggs/ticker/{ticker}/range/1/day/{EARLIEST_MARKET_DATE}/{LATEST_MARKET_DATE}?apiKey={POLYGON_IO_API_KEY}",database,table)
+                    output(f"Data pulled for {database}, {ticker}, {table}")
+
+
+    """Data Validation"""
+    for database, items in DATABASES.items():
+        if database != "BaselineTimestamps.db":
+
+            for table_name in items['tables']:
+                for ticker in items['tickers']:
+                    print(f"Processing ticker: {ticker} in table: {table_name}")
+
+            connection.commit()
+            connection.close()
+
 
     """End"""
     end_time = datetime.now()
