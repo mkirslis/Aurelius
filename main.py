@@ -32,8 +32,8 @@ def main():
     strategy_manager = StrategyManager(database_tables, logger)
     strategy_manager.check_for_duplicates()
     strategy_manager.summarize()
-    strategy_manager.create_strategies()
-    # strategy_manager.plot_histograms()
+    strategy_manager.create_strategies(["market_cap_weighted", "equal_weighted"])
+    strategy_manager.plot_histograms()
 
     ### END
     runtime = datetime.now() - start_time
